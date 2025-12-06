@@ -11,7 +11,7 @@ import * as livekit from '@livekit/agents-plugin-livekit';
 import * as silero from '@livekit/agents-plugin-silero';
 import { BackgroundVoiceCancellation } from '@livekit/noise-cancellation-node';
 import { BedrockAgentRuntimeClient, RetrieveCommand } from '@aws-sdk/client-bedrock-agent-runtime';
-import { RoomEvent, ParticipantKind } from '@livekit/rtc-node';
+import { RoomEvent, ParticipantKind, type Participant } from '@livekit/rtc-node';
 import { fileURLToPath } from 'node:url';
 import dotenv from 'dotenv';
 import { z } from 'zod';
@@ -178,7 +178,7 @@ export default defineAgent({
     });
 
     // Shutdown when participant disconnects
-    ctx.room.on(RoomEvent.ParticipantDisconnected, (participant) => {
+    ctx.room.on(RoomEvent.ParticipantDisconnected, (participant: Participant) => {
       // Only shutdown if a non-agent participant disconnects
       if (participant.kind !== ParticipantKind.AGENT) {
         console.log(`Participant ${participant.identity} disconnected, shutting down session`);

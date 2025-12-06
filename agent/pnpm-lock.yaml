@@ -23,6 +23,9 @@ importers:
       '@livekit/noise-cancellation-node':
         specifier: ^0.1.9
         version: 0.1.9
+      '@livekit/rtc-node':
+        specifier: ^0.13.21
+        version: 0.13.21
       dotenv:
         specifier: ^16.0.0
         version: 16.6.1
