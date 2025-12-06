@@ -23,3 +23,8 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
+  # Pass environment variables to the compute layer
+  environmentVariables:
+    LIVEKIT_API_KEY: ${LIVEKIT_API_KEY}
+    LIVEKIT_API_SECRET: ${LIVEKIT_API_SECRET}
+    LIVEKIT_URL: ${LIVEKIT_URL}
