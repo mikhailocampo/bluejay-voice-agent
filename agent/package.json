@@ -9,11 +9,13 @@
     "start": "node agent.js start"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-agent-runtime": "^3.700.0",
     "@livekit/agents": "^1.0.0",
     "@livekit/agents-plugin-silero": "^1.0.0",
     "@livekit/agents-plugin-livekit": "^1.0.0",
     "@livekit/noise-cancellation-node": "^0.1.9",
-    "dotenv": "^16.0.0"
+    "dotenv": "^16.0.0",
+    "zod": "^3.24.0"
   },
   "devDependencies": {
     "typescript": "^5.0.0",
