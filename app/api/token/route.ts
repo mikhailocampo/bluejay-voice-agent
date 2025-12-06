@@ -1,42 +1,50 @@
 import { AccessToken } from 'livekit-server-sdk';
+import { RoomAgentDispatch, RoomConfiguration } from '@livekit/protocol';
 import { NextResponse } from 'next/server';
+
+// Standard TokenSourceRequest format from livekit-client SDK
+interface TokenSourceRequest {
+  room_name?: string;
+  participant_name?: string;
+  participant_identity?: string;
+  participant_metadata?: string;
+  participant_attributes?: Record<string, string>;
+  room_config?: {
+    agents?: Array<{
+      agent_name?: string;
+      metadata?: string;
+    }>;
+  };
+}
 
 async function generateToken(request: Request) {
   try {
     console.log('Token request received:', request.method, request.url);
 
-    // Try to get params from query string (GET) or request body (POST)
-    const { searchParams } = new URL(request.url);
-    let identity = searchParams.get('identity');
-    let roomName = searchParams.get('room');
-    let agentName = searchParams.get('agentName');
-
-    // If POST request, try to get params from body
+    // Parse request body for POST requests (standard TokenSourceRequest format)
+    let body: TokenSourceRequest = {};
     if (request.method === 'POST') {
       try {
-        const body = await request.json();
-        identity = identity || body.identity;
-        roomName = roomName || body.room;
-        agentName = agentName || body.agentName;
+        body = await request.json();
       } catch {
         // Body parsing failed, use defaults
       }
     }
 
-    // Use defaults if not provided
-    identity = identity || `user-${Math.random().toString(36).substring(7)}`;
-    roomName = roomName || 'default-room';
+    // Extract values from the standard TokenSourceRequest format
+    const roomName = body.room_name || `room-${Math.random().toString(36).substring(7)}`;
+    const participantIdentity = body.participant_identity || body.participant_name || `user-${Math.random().toString(36).substring(7)}`;
+    const participantName = body.participant_name || participantIdentity;
+    const participantMetadata = body.participant_metadata;
+    const participantAttributes = body.participant_attributes;
+    
+    // Extract agent dispatch configuration from room_config
+    const agentName = body.room_config?.agents?.[0]?.agent_name;
+    const agentMetadata = body.room_config?.agents?.[0]?.metadata;
 
     // Validate required environment variables
     const apiKey = process.env.LIVEKIT_API_KEY;
     const apiSecret = process.env.LIVEKIT_API_SECRET;
-
-    // Temporary debug - check for whitespace/encoding issues
-    console.log('API Key:', JSON.stringify(apiKey));
-    console.log('API Secret length:', apiSecret?.length);
-    console.log('API Secret first 4 chars:', apiSecret?.substring(0, 4));
-    console.log('API Secret last 4 chars:', apiSecret?.substring(apiSecret.length - 4));
-
 
     if (!apiKey || !apiSecret) {
       console.error('Missing LiveKit credentials');
@@ -48,10 +56,21 @@ async function generateToken(request: Request) {
 
     // Create access token
     const token = new AccessToken(apiKey, apiSecret, {
-      identity,
-      // Token expires in 1 hour
-      ttl: '1h',
+      identity: participantIdentity,
+      name: participantName,
+      // Token expires in 10 minutes
+      ttl: '10m',
     });
+
+    // Add participant metadata if provided
+    if (participantMetadata) {
+      token.metadata = participantMetadata;
+    }
+
+    // Add participant attributes if provided
+    if (participantAttributes) {
+      token.attributes = participantAttributes;
+    }
 
     // Grant permissions
     token.addGrant({
@@ -60,16 +79,24 @@ async function generateToken(request: Request) {
       canPublish: true,
       canSubscribe: true,
       canPublishData: true,
+      canUpdateOwnMetadata: true,
     });
 
-    // Add agent metadata if provided
+    // Configure agent dispatch if agent name is provided
     if (agentName) {
-      token.metadata = JSON.stringify({ agentName });
+      token.roomConfig = new RoomConfiguration({
+        agents: [
+          new RoomAgentDispatch({
+            agentName: agentName,
+            metadata: agentMetadata,
+          }),
+        ],
+      });
     }
 
     const jwt = await token.toJwt();
 
-    // Check multiple possible environment variable names
+    // Get LiveKit server URL
     const liveKitUrl =
       process.env.LIVEKIT_URL ||
       process.env.LIVEKIT_WS_URL ||
@@ -83,12 +110,16 @@ async function generateToken(request: Request) {
       );
     }
 
-    console.log('Token generated successfully for identity:', identity, 'room:', roomName, 'agentName:', agentName);
-    console.log('LiveKit URL:', liveKitUrl);
+    console.log('Token generated successfully:', {
+      identity: participantIdentity,
+      room: roomName,
+      agentName: agentName || 'auto-dispatch',
+    });
 
+    // Return standard TokenSourceResponse format (snake_case)
     return NextResponse.json({
-      accessToken: jwt,
-      serverUrl: liveKitUrl,
+      participant_token: jwt,
+      server_url: liveKitUrl,
     });
   } catch (error) {
     console.error('Error generating token:', error);
@@ -99,11 +130,7 @@ async function generateToken(request: Request) {
   }
 }
 
-// Handle both GET and POST requests
-export async function GET(request: Request) {
-  return generateToken(request);
-}
-
+// Handle POST requests (standard for TokenSource.endpoint)
 export async function POST(request: Request) {
   return generateToken(request);
 }
@@ -114,7 +141,7 @@ export async function OPTIONS() {
     status: 200,
     headers: {
       'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type',
     },
   });
