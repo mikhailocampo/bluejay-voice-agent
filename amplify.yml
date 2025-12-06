@@ -13,12 +13,15 @@ frontend:
       commands:
         - export BUN_INSTALL="$HOME/.bun"
         - export PATH="$BUN_INSTALL/bin:$PATH"
+        - echo "Checking for LIVEKIT vars..." && env | grep LIVEKIT || echo "No LIVEKIT vars found"
+        - env | grep -e LIVEKIT_API_KEY -e LIVEKIT_API_SECRET -e LIVEKIT_URL >> .env.production
+        - cat .env.production || echo ".env.production is empty"
         - bun run build
   artifacts:
     # IMPORTANT: Set baseDirectory to .next for SSR support
     baseDirectory: .next
     files:
-      - '**/*'
+      - "**/*"
   cache:
     paths:
       - node_modules/**/*
